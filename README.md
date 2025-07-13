@@ -15,6 +15,8 @@ A simple desktop application built with **PySide6** and **SQLite** to track hour
   - Total hours per category
   - Overall hours with and without travel time
 - Data stored persistently using an SQLite database
+- Export as a CSV or Excel spreadsheet
+- Load a CSV
 
 ## Getting Started
 

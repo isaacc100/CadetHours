@@ -1,7 +1,22 @@
 import sqlite3
+import os
+import sys
+from pathlib import Path
 from datetime import datetime
 
-DB_FILE = "hours.db"
+# Get a platform-safe path for the database
+def get_db_file():
+    if sys.platform == "win32":
+        base_dir = Path(os.getenv("LOCALAPPDATA")) / "HourTracker"
+    elif sys.platform == "darwin":
+        base_dir = Path.home() / "Library" / "Application Support" / "HourTracker"
+    else:
+        base_dir = Path.home() / ".hourtracker"
+
+    base_dir.mkdir(parents=True, exist_ok=True)
+    return base_dir / "hours.db"
+
+DB_FILE = get_db_file()
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -43,7 +58,6 @@ def update_entry(entry_id, date, type_, hours, travel_time):
     conn.commit()
     conn.close()
 
-
 def fetch_entries():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -62,3 +76,10 @@ def get_summary():
     totals = cursor.fetchone()
     conn.close()
     return summary, totals
+
+def reset_all_entries():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM entries")
+    conn.commit()
+    conn.close()

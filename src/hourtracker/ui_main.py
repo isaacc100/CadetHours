@@ -1,9 +1,13 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QPushButton, QComboBox, QDateEdit,
-    QDoubleSpinBox, QTableWidget, QTableWidgetItem, QLineEdit, QHBoxLayout
+    QDoubleSpinBox, QTableWidget, QTableWidgetItem, QLineEdit, QHBoxLayout, QFileDialog, QMessageBox
 )
 from PySide6.QtCore import Qt, QDate
-from .database import add_entry, fetch_entries, get_summary, delete_entry, update_entry
+from .database import add_entry, fetch_entries, get_summary, delete_entry, update_entry, reset_all_entries
+import csv
+from .excel_exporter import export_to_excel
+
+
 
 class TimeTrackerUI(QWidget):
     def __init__(self):
@@ -41,6 +45,23 @@ class TimeTrackerUI(QWidget):
         self.travel_input.setSuffix(" hrs (travel)")
 
         self.submit_btn = QPushButton("Add Entry")
+        self.export_btn = QPushButton("Export CSV")
+        self.export_btn.clicked.connect(self.export_data)
+
+        self.import_btn = QPushButton("Import CSV")
+        self.import_btn.clicked.connect(self.import_data)
+
+        self.reset_btn = QPushButton("Reset All Data")
+        self.reset_btn.clicked.connect(self.reset_data)
+
+        self.export_excel_btn = QPushButton("Export Excel")
+        self.export_excel_btn.clicked.connect(self.export_excel)
+        form_layout.addWidget(self.export_excel_btn)
+
+        form_layout.addWidget(self.export_btn)
+        form_layout.addWidget(self.import_btn)
+        form_layout.addWidget(self.reset_btn)
+        
         self.submit_btn.clicked.connect(self.handle_submit)
 
         form_layout.addWidget(QLabel("Date:"))
@@ -162,3 +183,52 @@ class TimeTrackerUI(QWidget):
             lines.append(f"<b>Total (including travel):</b> {overall:.2f} hrs")
 
         self.summary_label.setText("<br>".join(lines))
+        
+    def export_data(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Export to CSV", "hours.csv", "CSV Files (*.csv)")
+        if not path:
+            return
+        try:
+            with open(path, "w", newline="", encoding="utf-8") as file:
+                writer = csv.writer(file)
+                writer.writerow(["Date", "Type", "Hours", "Travel"])
+                for entry in self.entries:
+                    writer.writerow(entry[1:])  # skip the ID
+            QMessageBox.information(self, "Export Complete", f"Data exported to:\n{path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Could not export:\n{e}")
+
+    def import_data(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Import CSV", "", "CSV Files (*.csv)")
+        if not path:
+            return
+        try:
+            with open(path, newline="", encoding="utf-8") as file:
+                reader = csv.reader(file)
+                next(reader)  # Skip header
+                for row in reader:
+                    if len(row) != 4:
+                        continue
+                    date, type_, hours, travel = row
+                    add_entry(date, type_, float(hours), float(travel))
+            self.refresh_table()
+            QMessageBox.information(self, "Import Complete", f"Data loaded from:\n{path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Could not import:\n{e}")
+
+    def reset_data(self):
+        confirm = QMessageBox.question(
+            self,
+            "Confirm Reset",
+            "This will delete ALL entries. Are you sure?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if confirm == QMessageBox.StandardButton.Yes:
+            reset_all_entries()
+            self.refresh_table()
+            
+    def export_excel(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Export Excel", "hours.xlsx", "Excel Files (*.xlsx)")
+        if not path:
+            return
+        export_to_excel(path, self.entries, parent_widget=self)

@@ -110,7 +110,8 @@ class TimeTrackerUI(QWidget):
         self.setLayout(layout)
     def handle_export_import(self):
         # Dialog to choose Export or Import
-        choice, ok = QMessageBox.getText(self, "Export/Import", "Type 'export' to export or 'import' to import:")
+        from PySide6.QtWidgets import QInputDialog
+        choice, ok = QInputDialog.getText(self, "Export/Import", "Type 'export' to export or 'import' to import:")
         if not ok:
             return
         choice = choice.strip().lower()
@@ -134,9 +135,20 @@ class TimeTrackerUI(QWidget):
             return
         recorded = False  # New entries default to unrecorded
         if self.editing_id:
-            # If editing, preserve recorded status
-            old_entry = next((e for e in self.entries if e[0] == self.editing_id), None)
-            recorded = old_entry[6] if old_entry else False
+            # If editing, get the current state of the Recorded checkbox from the table
+            row = None
+            for i, entry in enumerate(self.entries):
+                if entry[0] == self.editing_id:
+                    row = i
+                    break
+            if row is not None:
+                recorded_item = self.table.item(row, 6)
+                if recorded_item is not None:
+                    recorded = recorded_item.checkState() == Qt.Checked
+            else:
+                # fallback to old entry value
+                old_entry = next((e for e in self.entries if e[0] == self.editing_id), None)
+                recorded = old_entry[6] if old_entry else False
             update_entry(self.editing_id, date, name, type_, hours, travel, recorded, notes)
             self.submit_btn.setText("Add Entry")
             self.editing_id = None
@@ -272,19 +284,29 @@ class TimeTrackerUI(QWidget):
         self.summary_left.setText("<br>".join(left_lines))
 
     def handle_recorded_change(self, item):
-        # Only handle changes in the Recorded column
-        if item.column() != 5:
+        # Only handle changes in the Recorded column (column 6)
+        if item.column() != 6:
             return
         row = item.row()
         entry = self.entries[row]
-        if len(entry) == 5:
+        recorded = item.checkState() == Qt.Checked
+        # Update entry in database, preserving all other fields
+        if len(entry) == 8:
+            id_, date, name, type_, hours, travel, _, notes = entry
+            update_entry(id_, date, name, type_, hours, travel, recorded, notes)
+        elif len(entry) == 5:
             id_, date, type_, hours, travel = entry
-            recorded = item.checkState() == Qt.Checked
+            update_entry(id_, date, '', type_, hours, travel, recorded, '')
         else:
-            id_, date, type_, hours, travel, _ = entry
-            recorded = item.checkState() == Qt.Checked
-        # Update entry in database
-        update_entry(id_, date, type_, hours, travel, recorded)
+            # fallback for any other format
+            id_ = entry[0]
+            date = entry[1] if len(entry) > 1 else ''
+            name = entry[2] if len(entry) > 2 else ''
+            type_ = entry[3] if len(entry) > 3 else ''
+            hours = entry[4] if len(entry) > 4 else 0
+            travel = entry[5] if len(entry) > 5 else 0
+            notes = entry[7] if len(entry) > 7 else ''
+            update_entry(id_, date, name, type_, hours, travel, recorded, notes)
         self.refresh_table()
         
     def export_data(self):

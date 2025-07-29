@@ -25,18 +25,35 @@ def init_db():
     CREATE TABLE IF NOT EXISTS entries (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         date TEXT NOT NULL,
+        name TEXT,
         type TEXT NOT NULL,
         hours REAL NOT NULL,
-        travel_time REAL DEFAULT 0
+        travel_time REAL DEFAULT 0,
+        recorded INTEGER DEFAULT 0,
+        notes TEXT
     )""")
     conn.commit()
+
+    # Check for missing columns and add if needed
+    cursor.execute("PRAGMA table_info(entries)")
+    columns = [row[1] for row in cursor.fetchall()]
+    if 'recorded' not in columns:
+        cursor.execute("ALTER TABLE entries ADD COLUMN recorded INTEGER DEFAULT 0")
+        conn.commit()
+    if 'name' not in columns:
+        cursor.execute("ALTER TABLE entries ADD COLUMN name TEXT")
+        conn.commit()
+    if 'notes' not in columns:
+        cursor.execute("ALTER TABLE entries ADD COLUMN notes TEXT")
+        conn.commit()
+
     conn.close()
 
-def add_entry(date, type_, hours, travel_time):
+def add_entry(date, name, type_, hours, travel_time, recorded=False, notes=None):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO entries (date, type, hours, travel_time) VALUES (?, ?, ?, ?)",
-                   (date, type_, hours, travel_time))
+    cursor.execute("INSERT INTO entries (date, name, type, hours, travel_time, recorded, notes) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                   (date, name, type_, hours, travel_time, int(recorded), notes))
     conn.commit()
     conn.close()
 
@@ -47,24 +64,25 @@ def delete_entry(entry_id):
     conn.commit()
     conn.close()
 
-def update_entry(entry_id, date, type_, hours, travel_time):
+def update_entry(entry_id, date, name, type_, hours, travel_time, recorded=False, notes=None):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("""
         UPDATE entries
-        SET date = ?, type = ?, hours = ?, travel_time = ?
+        SET date = ?, name = ?, type = ?, hours = ?, travel_time = ?, recorded = ?, notes = ?
         WHERE id = ?
-    """, (date, type_, hours, travel_time, entry_id))
+    """, (date, name, type_, hours, travel_time, int(recorded), notes, entry_id))
     conn.commit()
     conn.close()
 
 def fetch_entries():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, date, type, hours, travel_time FROM entries ORDER BY date DESC")
+    cursor.execute("SELECT id, date, name, type, hours, travel_time, recorded, notes FROM entries ORDER BY date DESC")
     entries = cursor.fetchall()
     conn.close()
-    return entries
+    # Convert recorded from int to bool
+    return [(id_, date, name, type_, hours, travel, bool(recorded), notes) for id_, date, name, type_, hours, travel, recorded, notes in entries]
 
 def get_summary():
     conn = sqlite3.connect(DB_FILE)

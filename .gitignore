@@ -1,3 +1,41 @@
-pyproject.toml
-hours.db
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
 *.pyc
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Virtual environment
+.venv/
+env/
+venv/
+
+# Database and local data
+*.db
+*.sqlite3
+hours.db
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VS Code settings
+.vscode/
+
+# Python project files
+pyproject.toml
+
+# Test output
+htmlcov/
+.coverage
+.cache/
